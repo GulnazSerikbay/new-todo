@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { v4 as myNewID } from "uuid";
 
 import "./App.css";
@@ -21,7 +21,12 @@ const buttons = [
 
 function App() {
   const [itemToDo, setItemToDo] = useState("");
-  const [items, setItems] = useState([
+
+  const [items, setItems] = useState(() => {
+    // getting stored value
+    const saved = localStorage.getItem("items");
+    const initialValue = JSON.parse(saved);
+    return initialValue || [
     {
       key: 1,
       label: "Have fun",
@@ -34,20 +39,29 @@ function App() {
       key: 3,
       label: "Generate Value",
     },
-  ]);
+  ]});
 
   const [filterType, setFilterType] = useState("all");
 
+  const [toSearch, setToSearch] = useState("");
+
+  const handleSearch = (event) => {
+    setToSearch(event.target.value);
+  };
+
   const handleToDoChange = (event) => {
     setItemToDo(event.target.value);
+    
   };
 
   const handleAddItem = () => {
-    const newItem = { key: myNewID(), label: itemToDo };
+    if (itemToDo !== "") {
+      const newItem = { key: myNewID(), label: itemToDo };
 
-    setItems((prevElement) => [newItem, ...prevElement]);
+      setItems((prevElement) => [newItem, ...prevElement]);
 
-    setItemToDo("");
+      setItemToDo("");
+    }
   };
 
   const handleItemDone = ({ key }) => {
@@ -60,9 +74,29 @@ function App() {
     );
   };
 
+  const handleImportant = ({ key }) => {
+    setItems((prevItems) =>
+      prevItems.map((item) => {
+        if (item.key === key) {
+          return { ...item, important: !item.important };
+        } else return item;
+      })
+    );
+  };
+
+  const handleDelete = ({key}) => {
+    const ind = items.findIndex((item)=> item.key===key)
+    const left = items.slice(0, ind)
+    const right = items.slice(ind+1, items.length)
+   
+    setItems([...left,...right])
+  };
+
   const handleFilterChange = ({ type }) => {
     setFilterType(type);
   };
+
+
 
   const moreToDo = items.filter((item) => !item.done).length;
 
@@ -70,10 +104,17 @@ function App() {
 
   const filteredArray =
     filterType === "all"
-      ? items
+      ? items.filter((item)=> item.label.toLowerCase().includes(toSearch.toLowerCase()))
       : filterType === "done"
-      ? items.filter((item) => item.done)
-      : items.filter((item) => !item.done);
+      ? items.filter((item) => item.done && item.label.toLowerCase().includes(toSearch.toLowerCase()))
+      : items.filter((item) => !item.done && item.label.toLowerCase().includes(toSearch.toLowerCase()));
+
+
+      useEffect(() => {
+        localStorage.setItem('items', JSON.stringify(items));
+      }, [items]);
+
+
 
   return (
     <div className="todo-app">
@@ -91,6 +132,7 @@ function App() {
           type="text"
           className="form-control search-input"
           placeholder="type to search"
+          onChange={handleSearch}
         />
         {/* Item-status-filter */}
         <div className="btn-group">
@@ -113,8 +155,8 @@ function App() {
       <ul className="list-group todo-list">
         {filteredArray.length > 0 &&
           filteredArray.map((item) => (
-            <li key={item.key} className="list-group-item">
-              <span className={`todo-list-item ${item.done ? "done" : ""}`}>
+            <li key={item.key} className="list-group-item" id ={item.key}>
+              <span className={`todo-list-item ${item.done ? "done" : ""} ${item.important ? "important" : ""}`}>
                 <span
                   className="todo-list-item-label"
                   onClick={() => handleItemDone(item)}
@@ -124,7 +166,8 @@ function App() {
 
                 <button
                   type="button"
-                  className="btn btn-outline-success btn-sm float-right"
+                  className={`btn btn-outline-success btn-sm float-right `}
+                  onClick={() => handleImportant(item)}
                 >
                   <i className="fa fa-exclamation" />
                 </button>
@@ -132,6 +175,7 @@ function App() {
                 <button
                   type="button"
                   className="btn btn-outline-danger btn-sm float-right"
+                  onClick={() => handleDelete(item)}
                 >
                   <i className="fa fa-trash-o" />
                 </button>
